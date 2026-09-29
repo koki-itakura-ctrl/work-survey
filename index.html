@@ -157,11 +157,8 @@
    - 任意設定：Google Apps Script 経由でスプレッドシートにも自動反映
    ============================================================ */
 
-/* ---------- 設定 ----------
-   Apps Script をデプロイして発行された URL（…/exec で終わるもの）を、下の '' の中に貼り付けてください。
-   例: const GAS_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
------------------------------------------------------------------- */
-const GAS_URL = '';
+/* ---------- 設定 ---------- */
+const GAS_URL = 'https://script.google.com/a/macros/staff-b.com/s/AKfycbzg-6Sjp38ytszzEx_1Jo-ioOB-v7J7JrOqoY5OSw7t9a0do9mM2o_a48tM8_63wHzD-Q/exec';
 
 /* ---------- 管理者のログイン状態（このタブを閉じると消える） ---------- */
 const SESSION_KEY = 'oshigoto-survey:session';
@@ -177,10 +174,7 @@ function setSession(token) {
   } catch (e) { /* 使えない環境ではメモリのみ */ }
 }
 
-/* ---------- サーバー（Apps Script）との通信 ----------
-   スタッフ・管理者・回答のデータはすべてスプレッドシート側にあり、
-   このツールはブラウザにデータを持たない。
------------------------------------------------------------------- */
+/* ---------- サーバー（Apps Script）との通信 ---------- */
 let pendingRequests = 0;
 function updateBusy() {
   const el = document.getElementById('busyToast');
@@ -208,9 +202,6 @@ async function api(action, payload = {}) {
 /* ---------- コンディション判定ロジック ---------- */
 const LEVELS = ['良好', 'ふつう', '要フォロー'];
 
-// 自由記述の中に「明らかな退職懸念」を示す表現が含まれるかを判定するための
-// 狭く絞ったキーワードリスト。拾いすぎを避けるため、一般的な不満・ネガティブ表現
-// （「辛い」「しんどい」など）は含めず、退職・転職に直結する言い回しのみに限定している。
 const RESIGNATION_KEYWORDS = [
   '辞めたい', '辞めます', '辞めようと思', '辞めようかな', '辞めることを考え',
   '退職したい', '退職を考え', '退職を検討', '退職しようと思',
@@ -240,11 +231,9 @@ function determineCondition(q1, q2, q3, ikigai, komari) {
 
   let level = baseLevelFromScores(average, min);
 
-  // 低評価（1〜2点）の項目が2つ以上ある場合は要フォローに引き上げる
   const lowCount = [q1, q2, q3].filter((v) => v <= 2).length;
   if (lowCount >= 2 && level !== '要フォロー') level = bumpLevel(level, 1);
 
-  // 自由記述に明らかな退職懸念の表現がある場合は、点数に関わらず要フォローにする
   const concernFlag = hasResignationConcern(ikigai) || hasResignationConcern(komari);
   if (concernFlag) level = '要フォロー';
 
@@ -324,7 +313,6 @@ function getTokenFromHash() {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-/* シート名として使えない文字（Googleスプレッドシートの制約）を弾く */
 function isValidUsername(name) {
   if (!name || name.length > 80) return false;
   return !/[\/\\?\*\[\]:]/.test(name);
@@ -333,11 +321,11 @@ function isValidUsername(name) {
 /* ---------- アプリ状態 ---------- */
 const state = {
   view: 'loading',
-  staffList: [],       // ログイン中の管理者が登録したスタッフ
-  responses: [],       // そのスタッフの回答
-  currentAdmin: null,  // { id, username }
-  authMode: 'login',   // 'login' | 'register'
-  survey: null,        // スタッフ本人ページ用 { name, staffNumber, brand }
+  staffList: [],
+  responses: [],
+  currentAdmin: null,
+  authMode: 'login',
+  survey: null,
   surveyToken: '',
   loadError: '',
   editingStaffId: null,
@@ -350,7 +338,6 @@ const app = document.getElementById('app');
 const topbar = document.getElementById('topbar');
 const navTabs = document.getElementById('navTabs');
 
-/* サーバーは、ログイン中の管理者に紐づくデータだけを返すので、そのまま使える */
 function myStaff() { return state.staffList; }
 function myResponses() { return state.responses; }
 
@@ -364,7 +351,6 @@ async function loadAdminData() {
   return res;
 }
 
-// 最新の情報に更新して再描画する
 async function refreshAdminData() {
   const res = await api('adminData');
   if (res.authError) { forceLogout(res.error); return; }
@@ -390,7 +376,6 @@ function forceLogout(message) {
   render();
 }
 
-// 管理者向けの通信。ログインが切れていたら自動でログイン画面に戻す
 async function adminCall(action, payload) {
   const res = await api(action, payload);
   if (res.authError) { forceLogout(res.error); return null; }
@@ -405,7 +390,7 @@ function showMsg(id, text) {
 /* ---------- 初期化 ---------- */
 async function init() {
   if (!GAS_URL) { state.view = 'noConfig'; render(); return; }
-  render(); // 「読み込み中」を表示
+  render();
 
   const token = getTokenFromHash();
   if (token) {
@@ -462,7 +447,7 @@ function renderTopbar() {
   `;
 }
 
-/* ---------- 画面：読み込み中／未設定／接続エラー ---------- */
+/* ---------- 画面ビュー定義 ---------- */
 function viewLoading() {
   return `<div class="center-wrap" style="text-align:center;"><p class="muted">読み込み中…</p></div>`;
 }
@@ -490,7 +475,6 @@ function viewLoadError() {
   `;
 }
 
-/* ---------- 画面：ホーム ---------- */
 function viewHome() {
   return `
     <div class="center-wrap">
@@ -511,7 +495,6 @@ function viewHome() {
   `;
 }
 
-/* ---------- 画面：リンクが無効 ---------- */
 function viewInvalidLink() {
   return `
     <div class="center-wrap">
@@ -524,12 +507,9 @@ function viewInvalidLink() {
   `;
 }
 
-/* ---------- 画面：アンケート ---------- */
 function viewSurvey() {
   const staff = state.survey;
-  if (!staff) {
-    return viewInvalidLink();
-  }
+  if (!staff) return viewInvalidLink();
 
   return `
     <div class="wrap" style="max-width:640px;">
@@ -587,7 +567,6 @@ function likertHtml(name) {
   `;
 }
 
-/* ---------- 画面：送信完了 ---------- */
 function viewSurveyDone() {
   return `
     <div class="center-wrap">
@@ -599,7 +578,6 @@ function viewSurveyDone() {
   `;
 }
 
-/* ---------- 画面：管理者ログイン／新規登録 ---------- */
 function viewAdminEntry() {
   return `
     <div class="center-wrap">
@@ -655,7 +633,6 @@ function viewAdminRegisterForm() {
   `;
 }
 
-/* ---------- ダッシュボード用の集計 ---------- */
 function getLatestByStaff() {
   const myIds = new Set(myStaff().map(s => s.id));
   const sorted = myResponses()
@@ -675,14 +652,12 @@ function staffById(id) {
   return { name: (r ? r.staffName : '') + '（削除済み）', staffNumber: '-', brand: r ? r.brand : '' };
 }
 
-/* 指定スタッフの最新の回答を1件返す（なければ null） */
 function latestResponseFor(staffId) {
   const responses = state.responses.filter(r => r.staffId === staffId);
   if (responses.length === 0) return null;
   return responses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 }
 
-/* ---------- 画面：ダッシュボード ---------- */
 function viewDashboard() {
   const latestMap = getLatestByStaff();
   const latest = Array.from(latestMap.values());
@@ -824,7 +799,6 @@ function donutSvg(counts) {
   `;
 }
 
-/* ---------- 画面：スタッフ管理 ---------- */
 function viewStaff() {
   const list = myStaff();
   return `
@@ -923,7 +897,6 @@ function staffEditRow(s) {
   `;
 }
 
-/* ---------- 画面：スタッフの回答履歴 ---------- */
 function viewStaffDetail() {
   const staff = state.staffList.find(s => s.id === state.viewingStaffId);
 
@@ -990,14 +963,12 @@ function staffDetailResponseCard(r) {
   `;
 }
 
-/* ---------- HTMLエスケープ ---------- */
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
 
-/* ---------- 描画 ---------- */
 function render() {
   renderTopbar();
   let html = '';
@@ -1019,7 +990,6 @@ function render() {
   attachHandlers();
 }
 
-/* ---------- イベント処理 ---------- */
 function attachHandlers() {
   const reloadBtn = document.getElementById('reloadBtn');
   if (reloadBtn) reloadBtn.addEventListener('click', () => window.location.reload());
@@ -1028,7 +998,7 @@ function attachHandlers() {
     el.addEventListener('click', () => {
       const target = el.getAttribute('data-nav');
       if (target === 'logout') {
-        api('logout'); // 送信内容は呼び出した瞬間に確定するので、続けて消してよい
+        api('logout');
         setSession('');
         state.currentAdmin = null;
         state.staffList = [];
@@ -1053,7 +1023,6 @@ function attachHandlers() {
     });
   });
 
-  /* --- スタッフ本人：アンケート送信 --- */
   const surveyForm = document.getElementById('surveyForm');
   if (surveyForm) {
     surveyForm.addEventListener('submit', async (e) => {
@@ -1099,7 +1068,6 @@ function attachHandlers() {
     });
   }
 
-  /* --- 管理者：ログイン --- */
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -1127,7 +1095,6 @@ function attachHandlers() {
     });
   }
 
-  /* --- 管理者：新規登録 --- */
   const registerForm = document.getElementById('registerForm');
   if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
@@ -1165,7 +1132,6 @@ function attachHandlers() {
     });
   }
 
-  /* --- 管理者：スタッフ登録 --- */
   const staffForm = document.getElementById('staffForm');
   if (staffForm) {
     staffForm.addEventListener('submit', async (e) => {
